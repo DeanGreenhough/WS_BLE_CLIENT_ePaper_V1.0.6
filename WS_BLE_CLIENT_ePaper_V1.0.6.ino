@@ -3,22 +3,7 @@
 */
 
 
-/*Versions
-   1.0.0  Intial
-   1.0.1  Added WDT in callback function as freezing - set to 10secs
-   1.0.2  Altered delays in callback, delay end of loop needs to be 3secs
-   1.0.3  INIT_BLE ADDED & MOVED #include "BLEDevice.h" TO TOP AS FAILED TO COMPILE IN VS2019
-   1.0.4  ATTEMPTED TO ADD WIFI, core 1 CRASHES - ISSUES AROUND USE IOF A SINGLE AERIAL MAYBE!!
-   1.0.5  WiFi EVENT HANDLER ADDED TO SOLVE BT/WIFI ISSUES USING enum 
-		  note: BTON does not appear to invoke BT, enum is in correct state
-		  the work around is to esp.restart() after sending WiFi to re initilaise BT
-		  In my case this works, but think a hardware issue. Requires more understanding
-   1.0.6  WDT removed, Scan changed to 5 secs, system running stable and reliably
-	
-	Transferred to Github
 
-
-*/
 // DEBUG
 #define DEBUG 1
 
@@ -68,27 +53,7 @@ GxIO_Class io(SPI, /*CS=5*/ SS, /*DC=*/ 17, /*RST=*/ 16); // arbitrary selection
 GxEPD_Class display(io, /*RST=*/ 16, /*BUSY=*/ 4); // arbitrary selection of (16), 4
 // END DISPLAY
 
-/*
-// WDT
-#include "esp_system.h"
-const int wdtTimeout = 30000;  //WDT SET IN mS
-hw_timer_t *timer = NULL;
 
-//WDT FUNCTION
-void IRAM_ATTR resetModule() {
-  ets_printf("\n");
-  ets_printf("***********************************\n");
-  ets_printf("***********************************\n");
-  ets_printf("****** WDT ACTIVATED @ 30Sec ******\n");
-  ets_printf("***********************************\n");
-  ets_printf("***********************************\n");
-  ets_printf("\n");
-  delay(250);
-  esp_restart();
-  delay (10);
-
-}
-*/
 //static BLEUUID serviceUUID(BLEUUID((uint16_t)0x180D));
 //static BLEUUID    charUUID(BLEUUID((uint16_t)0x2A37));
 static BLEUUID serviceUUID("4fafc201-1fb5-459e-8fcc-c5c9c331914b");
@@ -113,8 +78,8 @@ unsigned long completeLoopTime = 99;
 
 enum { STEP_BTON, STEP_BTOFF, STEP_STA, STEP_END };
 void onButton() {
-  static uint32_t step = STEP_BTON;        // DECLARES A KNOWN STATE
-  switch (step) {               // PASSES step TO switch CASE
+  static uint32_t step = STEP_BTON;						 // DECLARES A KNOWN STATE
+  switch (step) {										 // PASSES step TO switch CASE
     case STEP_BTON://BT Only
       Serial.println("** Starting BT");
       Serial.print("step =  " );
@@ -135,7 +100,7 @@ void onButton() {
       break;
     case STEP_END:
      Serial.println("Restart after sending MQTT ");
-      esp_restart();    //BLE NOT RESTARTING - RESTART AFTER SENDING MQTT
+      esp_restart();									  //BLE NOT RESTARTING - RESTART AFTER SENDING MQTT
 /*
  *    WiFi Off
       Serial.println("** Stopping WiFi");
@@ -148,12 +113,12 @@ void onButton() {
   }
   if (step == STEP_END) {
     step = STEP_BTON;
-    Serial.print("STEP_BTON  " );
-    Serial.println(step);
+	if (DEBUG) Serial.print("STEP_BTON  " );
+	if (DEBUG)Serial.println(step);
   } else {
     step++;
-    Serial.print("step_end++  =  " );
-    Serial.println(step);
+    if (DEBUG) Serial.print("step_end++  =  " );
+	if (DEBUG) Serial.println(step);
   }
   delay(100);
 }
@@ -447,9 +412,7 @@ static void notifyCallback(BLERemoteCharacteristic * pBLERemoteCharacteristic, u
   RX_RIGHT = ((int)(pData[2]) << 8) + pData[3]; //DECODE CAST 2 BYTES INTO AN INT
   if (DEBUG)Serial.print ("RX_RIGHT    ");
   if (DEBUG)Serial.println(RX_RIGHT);
-
   delay(10);
-
   RX_VOLTAGE = ((int)(pData[4]) << 8) + pData[5];  //DECODE CAST 2 BYTES INTO AN INT
   if (DEBUG)Serial.print ("RX_VOLTAGE  ");
   if (DEBUG)Serial.println(RX_VOLTAGE);
@@ -457,35 +420,31 @@ static void notifyCallback(BLERemoteCharacteristic * pBLERemoteCharacteristic, u
   RX_CURRENT = ((int)(pData[6]) << 8) + pData[7];  //DECODE CAST 2 BYTES INTO AN INT
   if (DEBUG)Serial.print ("RX_CURRENT  ");
   if (DEBUG)Serial.println(RX_CURRENT);
-  //Serial.println("");
   delay(10);
+
   SALT_BLOCK_READ();             //DISPLAY
   UPDATE_BLOCK_LEVELS();         //DISPLAY
   delay(10);
+
   currentMillis = millis();      //END LOOPTIME
   completeLoopTime = (currentMillis - startMillis) ;
-  Serial.print ("Callback LoopTime ");
-  Serial.println(completeLoopTime);
-  Serial.println("");
+  if (DEBUG)Serial.print ("Callback LoopTime ");
+  if (DEBUG)Serial.println(completeLoopTime);
+  if (DEBUG)Serial.println("");
 
   onButton();									  //TURN BT OFF READY FOR WIFI CONNECTION
-  Serial.println("onButton STEP_BTOFF");
+  if (DEBUG)Serial.println("onButton STEP_BTOFF");
   delay(100);
 
   onButton();
-  Serial.println("onButton STEP_STA");
+  if (DEBUG)Serial.println("onButton STEP_STA");
+  if (DEBUG)Serial.println("onButton STEP_STA");
 
   
 }
 
 bool connectToServer(BLEAddress pAddress) {
-
-  //WDT for hanging issues required set to 10Secs
-  //timerAlarmEnable(timer);                          //enable interrupt
-  //                                                    if (DEBUG)Serial.println("**WDT Alarm Enabled**");
-  //timerWrite(timer, 0);                             //reset timer (feed watchdog)
-
-
+	  
   if (DEBUG)Serial.print("Forming a connection to ");
   if (DEBUG)Serial.println(pAddress.toString().c_str());
 
@@ -513,10 +472,7 @@ bool connectToServer(BLEAddress pAddress) {
   if (DEBUG)Serial.println("Found our characteristic");
 
   pRemoteCharacteristic->registerForNotify(notifyCallback);
-  //if (DEBUG)Serial.println("**WDT Alarm Disabled**");
-  //Serial.println("");
-  //timerAlarmDisable(timer);
-
+  
 }
 
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
@@ -636,12 +592,6 @@ void setup()
   display.init();
   // WIFI EVENT HANDLER
   WiFi.onEvent(WiFiEvent);
-/*
-  //WDT
-  timer = timerBegin(0, 80, true);                    //timer 0, div 80
-  timerAttachInterrupt(timer, &resetModule, true);    //attach callback
-  timerAlarmWrite(timer, wdtTimeout * 1000, false);   //set time in us
-  */
   //WiFi.mode(WIFI_OFF);
   onButton();                   //TURN BT ON
   Serial.println("onButton STEP_BTON");
